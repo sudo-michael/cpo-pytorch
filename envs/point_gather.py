@@ -4,13 +4,33 @@ from envs.gather_env import GatherEnv
 
 
 class PointGatherEnv(GatherEnv):
-    def __init__(self, n_apples=8, n_bombs=8, apple_reward=10, bomb_cost=1,
-                 activity_range=6.0, catch_range=1.0, n_bins=10,
-                 robot_object_spacing=2.0, sensor_range=6.0, sensor_span=np.pi):
-        GatherEnv.__init__(self, 'envs/assets/point.xml', n_apples, n_bombs,
-                           apple_reward, bomb_cost, activity_range, catch_range,
-                           n_bins, robot_object_spacing, sensor_range,
-                           sensor_span)
+    def __init__(
+        self,
+        n_apples=8,
+        n_bombs=8,
+        apple_reward=10,
+        bomb_cost=1,
+        activity_range=6.0,
+        catch_range=1.0,
+        n_bins=10,
+        robot_object_spacing=2.0,
+        sensor_range=6.0,
+        sensor_span=np.pi,
+    ):
+        GatherEnv.__init__(
+            self,
+            "envs/assets/point.xml",
+            n_apples,
+            n_bombs,
+            apple_reward,
+            bomb_cost,
+            activity_range,
+            catch_range,
+            n_bins,
+            robot_object_spacing,
+            sensor_range,
+            sensor_span,
+        )
 
     def step(self, action):
         self._do_simulation(action)
@@ -22,7 +42,7 @@ class PointGatherEnv(GatherEnv):
 
         self._step_num += 1
 
-        return self._get_obs(), reward, self._is_done(), info
+        return self._get_obs(), reward, False, info
 
     def _do_simulation(self, action):
         qpos = np.copy(self.sim.data.qpos)
@@ -38,7 +58,7 @@ class PointGatherEnv(GatherEnv):
         self.sim.forward()
 
     def _get_self_obs(self):
-        idx = self.model.body_names.index('torso')
+        idx = self.model.body_names.index("torso")
         pos = self.sim.data.qpos.flat
         vel = self.sim.data.qvel.flat
         com = self.sim.data.subtree_com[idx].flat
@@ -49,5 +69,15 @@ class PointGatherEnv(GatherEnv):
     def _get_orientation(self):
         return self.sim.data.qpos[2]
 
-    def _is_done(self):
-        return self._max_episode_steps and self._step_num >= self._max_episode_steps
+    # def _is_done(self):
+    #     return self._max_episode_steps and self._step_num >= self._max_episode_steps
+
+
+import gym
+
+gym.envs.register(
+    id="MyEnv-v0",
+    entry_point="envs.point_gather:PointGatherEnv",
+    max_episode_steps=1000,
+)
+

@@ -19,10 +19,20 @@ class Memory:
         self.trajectories = trajectories
 
     def sample(self):
-        observations = torch.cat([torch.stack(trajectory.observations) for trajectory in self.trajectories])
-        actions = torch.cat([torch.stack(trajectory.actions) for trajectory in self.trajectories])
-        rewards = torch.cat([torch.tensor(trajectory.rewards) for trajectory in self.trajectories])
-        costs = torch.cat([torch.tensor(trajectory.costs) for trajectory in self.trajectories])
+        observations = torch.cat(
+            [torch.stack(trajectory.observations) for trajectory in self.trajectories]
+        )
+        actions = torch.cat(
+            [torch.stack(trajectory.actions) for trajectory in self.trajectories]
+        )
+        rewards = torch.cat(
+            [torch.tensor(trajectory.rewards) for trajectory in self.trajectories]
+        )
+        costs = torch.cat(
+            [torch.tensor(trajectory.costs) for trajectory in self.trajectories]
+        )
+
+        print(rewards.shape)
 
         return observations, actions, rewards, costs
 

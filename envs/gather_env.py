@@ -15,14 +15,29 @@ BOMB = 1
 APPLE_RGBA = np.asarray([0.7, 0.13, 0.17, 1.0])
 BOMB_RGBA = np.asarray([0.22, 0.6, 0.18, 1.0])
 
-Object = namedtuple('Object', 'type x y')
+Object = namedtuple("Object", "type x y")
 
 
-class GatherEnv:
-    @autoassign(exclude=('model_path'))
-    def __init__(self, model_path, n_apples=8, n_bombs=8, apple_reward=10,
-                 bomb_cost=1, activity_range=6.0, catch_range=10, n_bins=10,
-                 robot_object_spacing=2.0, sensor_range=6.0, sensor_span=pi):
+import gym
+from gym import spaces
+
+
+class GatherEnv(gym.Env):
+    @autoassign(exclude=("model_path"))
+    def __init__(
+        self,
+        model_path,
+        n_apples=8,
+        n_bombs=8,
+        apple_reward=10,
+        bomb_cost=1,
+        activity_range=6.0,
+        catch_range=10,
+        n_bins=10,
+        robot_object_spacing=2.0,
+        sensor_range=6.0,
+        sensor_span=pi,
+    ):
         self.viewer = None
 
         self.apples = []
@@ -34,36 +49,54 @@ class GatherEnv:
         self._max_episode_steps = None
         self._step_num = 0
 
+        h = np.ones(29,)
+        e = np.ones(2,)
+        self.action_space = spaces.Box(-e, e, dtype=np.float32)
+        self.observation_space = spaces.Box(-h, h, dtype=np.float32)
+
     def build_model(self, agent_xml_path):
         sim_size = self.activity_range + 1
 
         model_tree = ET.parse(agent_xml_path)
-        worldbody = model_tree.find('.//worldbody')
+        worldbody = model_tree.find(".//worldbody")
 
-        floor_attrs = dict(name='floor', type='plane', material='MatPlane',
-                           pos='0 0 0', size=f'{sim_size} {sim_size} {sim_size}',
-                           conaffinity='1', rgba='0.8 0.9 0.8 1', condim='3')
-        wall_attrs = dict(type='box', conaffinity='1', rgba='0.8 0.9 0.8 1',
-                          condim='3')
+        floor_attrs = dict(
+            name="floor",
+            type="plane",
+            material="MatPlane",
+            pos="0 0 0",
+            size=f"{sim_size} {sim_size} {sim_size}",
+            conaffinity="1",
+            rgba="0.8 0.9 0.8 1",
+            condim="3",
+        )
+        wall_attrs = dict(type="box", conaffinity="1", rgba="0.8 0.9 0.8 1", condim="3")
 
-        wall_poses = [f'0 {-sim_size} 0', f'0 {sim_size} 0', \
-                      f'{-sim_size} 0 0', f'{sim_size} 0 0']
-        wall_sizes = [f'{sim_size + 0.1} 0.1 1', f'{sim_size + 0.1} 0.1 1', \
-                      f'0.1 {sim_size + 0.1} 1', f'0.1 {sim_size + 0.1} 1']
+        wall_poses = [
+            f"0 {-sim_size} 0",
+            f"0 {sim_size} 0",
+            f"{-sim_size} 0 0",
+            f"{sim_size} 0 0",
+        ]
+        wall_sizes = [
+            f"{sim_size + 0.1} 0.1 1",
+            f"{sim_size + 0.1} 0.1 1",
+            f"0.1 {sim_size + 0.1} 1",
+            f"0.1 {sim_size + 0.1} 1",
+        ]
 
         # Add a floor to the model
-        ET.SubElement(worldbody, 'geom', **floor_attrs)
+        ET.SubElement(worldbody, "geom", **floor_attrs)
 
         # Add walls to the model
         for i, pos, size in zip(range(4), wall_poses, wall_sizes):
-            ET.SubElement(worldbody,
-                          'geom',
-                          dict(**wall_attrs,
-                               name=f'wall{i}',
-                               pos=pos,
-                               size=size))
+            ET.SubElement(
+                worldbody,
+                "geom",
+                dict(**wall_attrs, name=f"wall{i}", pos=pos, size=size),
+            )
 
-        model_xml = ET.tostring(model_tree.getroot(), encoding='unicode', method='xml')
+        model_xml = ET.tostring(model_tree.getroot(), encoding="unicode", method="xml")
         model = load_model_from_xml(model_xml)
 
         return model
@@ -79,9 +112,11 @@ class GatherEnv:
 
         agent_x_pos, agent_y_pos = self.sim.data.qpos[0], self.sim.data.qpos[1]
 
-        rand_coord = lambda: np.random.randint(-self.activity_range, self.activity_range)
+        rand_coord = lambda: np.random.randint(
+            -self.activity_range, self.activity_range
+        )
 
-        while (len(self.apples) < self.n_apples):
+        while len(self.apples) < self.n_apples:
             x, y = rand_coord(), rand_coord()
 
             # Change this later to make (0, 0) the position of the agent
@@ -94,7 +129,7 @@ class GatherEnv:
             self.apples.append(Object(APPLE, x, y))
             obj_coords.append((x, y))
 
-        while (len(self.bombs) < self.n_bombs):
+        while len(self.bombs) < self.n_bombs:
             x, y = rand_coord(), rand_coord()
 
             if in_range(x, y, 0, 0, self.robot_object_spacing):
@@ -138,7 +173,7 @@ class GatherEnv:
         apple_readings = np.zeros(self.n_bins)
         bomb_readings = np.zeros(self.n_bins)
 
-        idx = self.model.body_names.index('torso')
+        idx = self.model.body_names.index("torso")
         com = self.sim.data.subtree_com[idx].flat
         agent_x, agent_y = com[:2]
 
@@ -239,9 +274,11 @@ class GatherEnv:
         for object in objects:
             x, y = object.x, object.y
             rgba = APPLE_RGBA if object.type is APPLE else BOMB_RGBA
-            self.viewer.add_marker(type=GEOM_SPHERE,
-                                   pos=np.asarray([x, y, 0.5]),
-                                   rgba=rgba,
-                                   size=np.asarray([0.5] * 3))
+            self.viewer.add_marker(
+                type=GEOM_SPHERE,
+                pos=np.asarray([x, y, 0.5]),
+                rgba=rgba,
+                size=np.asarray([0.5] * 3),
+            )
 
         self.viewer.render()
